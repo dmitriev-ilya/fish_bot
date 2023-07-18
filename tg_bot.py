@@ -3,7 +3,7 @@ import logging
 import redis
 
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
@@ -11,31 +11,34 @@ _database = None
 
 
 def start(update: Update, context: CallbackContext ):
-    update.message.reply_text(text='Привет!')
+    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
+                 InlineKeyboardButton("Option 2", callback_data='2')],
+
+                [InlineKeyboardButton("Option 3", callback_data='3')]]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(text='Привет!', reply_markup=reply_markup)
     return "ECHO"
 
 
+def button(update: Update, context: CallbackContext):
+    query = update.callback_query
+    update.message.reply_text(str(query.data))
+
+
 def echo(update: Update, context: CallbackContext):
-    users_reply = update.message.text
-    update.message.reply_text(users_reply)
+    if update.message:
+        user_reply = update.message.text
+    elif update.callback_query:
+        user_reply = update.callback_query.data
+    context.bot.send_message(chat_id=update.effective_chat.id, text=user_reply)
     return "ECHO"
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
-    """
-    Функция, которая запускается при любом сообщении от пользователя и решает как его обработать.
-    Эта функция запускается в ответ на эти действия пользователя:
-        * Нажатие на inline-кнопку в боте
-        * Отправка сообщения боту
-        * Отправка команды боту
-    Она получает стейт пользователя из базы данных и запускает соответствующую функцию-обработчик (хэндлер).
-    Функция-обработчик возвращает следующее состояние, которое записывается в базу данных.
-    Если пользователь только начал пользоваться ботом, Telegram форсит его написать "/start",
-    поэтому по этой фразе выставляется стартовое состояние.
-    Если пользователь захочет начать общение с ботом заново, он также может воспользоваться этой командой.
-    """
+
     db = get_database_connection()
-    if update.message.text:
+    if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
     elif update.callback_query:
@@ -47,7 +50,7 @@ def handle_users_reply(update: Update, context: CallbackContext):
         user_state = 'START'
     else:
         user_state = db.get(chat_id).decode("utf-8")
-    
+
     states_functions = {
         'START': start,
         'ECHO': echo
@@ -59,6 +62,7 @@ def handle_users_reply(update: Update, context: CallbackContext):
         db.set(chat_id, next_state)
     except Exception as err:
         print(err)
+
 
 def get_database_connection():
     global _database
