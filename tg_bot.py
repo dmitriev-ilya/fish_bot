@@ -7,26 +7,29 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
+from elasticpath_api_tools import get_access_token, get_products
+
 _database = None
 
 
-def start(update: Update, context: CallbackContext ):
-    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
-                 InlineKeyboardButton("Option 2", callback_data='2')],
-
-                [InlineKeyboardButton("Option 3", callback_data='3')]]
-
+def start(update: Update, context: CallbackContext, milton_access_token):
+    products = get_products(milton_access_token)['data']
+    keyboard = [[]]
+    for product in products:
+        inline_item = InlineKeyboardButton(product['attributes']['name'], callback_data=product['id'])
+        keyboard[0].append(inline_item)
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(text='Привет!', reply_markup=reply_markup)
+
+    update.message.reply_text(text='Привет! Ознакомся с нашим ассортиментом!', reply_markup=reply_markup)
     return "ECHO"
 
 
-def button(update: Update, context: CallbackContext):
+def button(update: Update, context: CallbackContext, milton_access_token):
     query = update.callback_query
     update.message.reply_text(str(query.data))
 
 
-def echo(update: Update, context: CallbackContext):
+def echo(update: Update, context: CallbackContext, milton_access_token):
     if update.message:
         user_reply = update.message.text
     elif update.callback_query:
@@ -38,6 +41,10 @@ def echo(update: Update, context: CallbackContext):
 def handle_users_reply(update: Update, context: CallbackContext):
 
     db = get_database_connection()
+
+    load_dotenv()
+
+    milton_access_token = get_access_token(os.getenv('CLIENT_ID'), os.getenv('CLIENT_SECRET'))
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -58,7 +65,7 @@ def handle_users_reply(update: Update, context: CallbackContext):
     state_handler = states_functions[user_state]
 
     try:
-        next_state = state_handler(update, context)
+        next_state = state_handler(update, context, milton_access_token)
         db.set(chat_id, next_state)
     except Exception as err:
         print(err)
