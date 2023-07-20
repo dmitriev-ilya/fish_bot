@@ -45,6 +45,16 @@ def get_products(access_token):
     return responce.json()
 
 
+def get_product(access_token, product_id):
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    product_api_base_url = f'https://useast.api.elasticpath.com/pcm/products/{product_id}'
+
+    responce = requests.get(product_api_base_url, headers=headers)
+    return responce.json()
+
+
 def create_cart(access_token, cart_id):
     headers = {
         'Authorization': f'Bearer {access_token}'
@@ -104,6 +114,18 @@ def add_cart_item(access_token, cart_id, product_id, quantity):
     return adding_cart_item_response.json()
 
 
+def get_file_href(access_token, file_id):
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+
+    getting_file_api_url = f'https://useast.api.elasticpath.com/v2/files/{file_id}'
+
+    response = requests.get(getting_file_api_url, headers=headers)
+    response.raise_for_status()
+    return response.json()['data']['link']['href']
+
+
 if __name__ == '__main__':
     load_dotenv()
 
@@ -111,4 +133,4 @@ if __name__ == '__main__':
 
     losos_id = 'efe48323-9521-408a-9bfc-b673dc8a2725'
 
-    print(get_cart_items(access_token, "dron"))
+    print(get_product(access_token, losos_id))
