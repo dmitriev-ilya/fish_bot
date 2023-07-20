@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
-from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href
+from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, create_cart
 
 _database = None
 
@@ -44,6 +44,11 @@ def get_product_description(update: Update, context: CallbackContext, milton_acc
     """
 
     keyboard = [
+        [
+            InlineKeyboardButton('1 кг', callback_data=f'1 {product_id}'),
+            InlineKeyboardButton('5 кг', callback_data=f'5 {product_id}'),
+            InlineKeyboardButton('10 кг', callback_data=f'10 {product_id}'),
+        ],
         [InlineKeyboardButton('Назад', callback_data='back')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -61,7 +66,7 @@ def get_product_description(update: Update, context: CallbackContext, milton_acc
     return 'HANDLE_DESCRIPTION'
 
 
-def back_to_menu(update: Update, context: CallbackContext, milton_access_token):
+def description_handler(update: Update, context: CallbackContext, milton_access_token):
     if update.callback_query.data == 'back':
         reply_markup = send_fish_menu(milton_access_token)
         context.bot.send_message(
@@ -74,6 +79,20 @@ def back_to_menu(update: Update, context: CallbackContext, milton_access_token):
             message_id=update.callback_query.message.message_id,
         )
         return 'HANDLE_MENU'
+    data = update.callback_query.data
+
+    cart_id = update.effective_chat.id
+    quantity, product_id = data.split()
+
+    add_cart_item(
+        milton_access_token,
+        cart_id,
+        product_id,
+        int(quantity)
+    )
+
+    print(get_cart_items(milton_access_token, cart_id))
+    return 'HANDLE_DESCRIPTION'
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
@@ -99,7 +118,7 @@ def handle_users_reply(update: Update, context: CallbackContext):
     states_functions = {
         'START': start,
         'HANDLE_MENU': get_product_description,
-        'HANDLE_DESCRIPTION': back_to_menu
+        'HANDLE_DESCRIPTION': description_handler
     }
     state_handler = states_functions[user_state]
 
