@@ -33,18 +33,6 @@ def start(update: Update, context: CallbackContext, milton_access_token):
 
 
 def get_product_description(update: Update, context: CallbackContext, milton_access_token):
-    if update.callback_query.data == 'back':
-        reply_markup = send_fish_menu(milton_access_token)
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text='Наш ассортимент:',
-            reply_markup=reply_markup
-        )
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.callback_query.message.message_id,
-        )
-        return 'HANDLE_MENU'
     product_id = update.callback_query.data
     product = get_product(milton_access_token, product_id)['data']
     main_image_id = product['relationships']['main_image']['data']['id']
@@ -70,7 +58,22 @@ def get_product_description(update: Update, context: CallbackContext, milton_acc
         chat_id=update.effective_chat.id,
         message_id=update.callback_query.message.message_id,
     )
-    return 'HANDLE_MENU'
+    return 'HANDLE_DESCRIPTION'
+
+
+def back_to_menu(update: Update, context: CallbackContext, milton_access_token):
+    if update.callback_query.data == 'back':
+        reply_markup = send_fish_menu(milton_access_token)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Наш ассортимент:',
+            reply_markup=reply_markup
+        )
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.callback_query.message.message_id,
+        )
+        return 'HANDLE_MENU'
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
@@ -95,7 +98,8 @@ def handle_users_reply(update: Update, context: CallbackContext):
 
     states_functions = {
         'START': start,
-        'HANDLE_MENU': get_product_description
+        'HANDLE_MENU': get_product_description,
+        'HANDLE_DESCRIPTION': back_to_menu
     }
     state_handler = states_functions[user_state]
 
