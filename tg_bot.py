@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
-from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, create_cart
+from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, get_cart
 
 _database = None
 
@@ -49,7 +49,10 @@ def get_product_description(update: Update, context: CallbackContext, milton_acc
             InlineKeyboardButton('5 кг', callback_data=f'5 {product_id}'),
             InlineKeyboardButton('10 кг', callback_data=f'10 {product_id}'),
         ],
-        [InlineKeyboardButton('Назад', callback_data='back')]
+        [
+            InlineKeyboardButton('Назад', callback_data='back'),
+            InlineKeyboardButton('Корзина', callback_data='cart')
+        ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -67,7 +70,9 @@ def get_product_description(update: Update, context: CallbackContext, milton_acc
 
 
 def description_handler(update: Update, context: CallbackContext, milton_access_token):
-    if update.callback_query.data == 'back':
+    cart_id = update.effective_chat.id
+    data = update.callback_query.data
+    if data == 'back':
         reply_markup = send_fish_menu(milton_access_token)
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -79,19 +84,44 @@ def description_handler(update: Update, context: CallbackContext, milton_access_
             message_id=update.callback_query.message.message_id,
         )
         return 'HANDLE_MENU'
-    data = update.callback_query.data
+    elif data == 'cart':
+        message = ''
+        cart_items = get_cart_items(milton_access_token, cart_id)
+        for cart_item in cart_items['data']:
+            product = get_product(milton_access_token, cart_item['product_id'])
+            product_description = product['data']['attributes'].get('description', 'Нет описания :(')
+            item_price = cart_item['meta']['display_price']['with_tax']['unit']['formatted']
+            cart_item_cost = cart_item['meta']['display_price']['with_tax']['value']['formatted']
 
-    cart_id = update.effective_chat.id
-    quantity, product_id = data.split()
+            cart_item_description = f"""
+                {cart_item['name']}
+                {product_description}
+                {item_price} per kg
+                {cart_item['quantity']} in cart for {cart_item_cost}
+            """
+            message += textwrap.dedent(cart_item_description)
+        total_price = cart_items['meta']['display_price']['with_tax']['formatted']
+        message += f'\nTotal: {total_price}'
 
-    add_cart_item(
-        milton_access_token,
-        cart_id,
-        product_id,
-        int(quantity)
-    )
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message
+        )
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.callback_query.message.message_id,
+        )
+    else:
+        quantity, product_id = data.split()
 
-    print(get_cart_items(milton_access_token, cart_id))
+        add_cart_item(
+            milton_access_token,
+            cart_id,
+            product_id,
+            int(quantity)
+        )
+
+    print(product)
     return 'HANDLE_DESCRIPTION'
 
 
