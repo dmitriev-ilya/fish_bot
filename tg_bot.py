@@ -11,6 +11,8 @@ from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, C
 from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, remove_product_from_cart, create_customer
 
 
+logger = logging.getLogger(__name__)
+
 _database = None
 
 
@@ -236,7 +238,7 @@ def handle_users_reply(update: Update, context: CallbackContext):
         next_state = state_handler(update, context, milton_access_token)
         db.set(chat_id, next_state)
     except Exception as err:
-        print(err)
+        logger.error(err, exc_info=True)
 
 
 def get_database_connection():
@@ -252,6 +254,8 @@ def get_database_connection():
 if __name__ == '__main__':
     load_dotenv()
     token = os.getenv("TELEGRAM_TOKEN")
+    logging.basicConfig(level=logging.INFO)
+
     updater = Updater(token)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
