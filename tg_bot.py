@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
-from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, get_cart, remove_product_from_cart
+from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, remove_product_from_cart
 
 
 _database = None
@@ -44,11 +44,14 @@ def send_cart_description(milton_access_token, cart_id):
             {cart_item['name']}
             {product_description}
             {item_price} per kg
-            {cart_item['quantity']} in cart for {cart_item_cost}
+            {cart_item['quantity']} kg in cart for {cart_item_cost}
         """
         message += textwrap.dedent(cart_item_description)
 
-        keyboard[0].append(InlineKeyboardButton(f'Убрать из корзины {cart_item["name"]}', callback_data=cart_item['product_id']))
+        keyboard[0].append(InlineKeyboardButton(
+            f'Убрать из корзины {cart_item["name"]}',
+            callback_data=cart_item['id'])
+        )
     total_price = cart_items['meta']['display_price']['with_tax']['formatted']
     message += f'\nTotal: {total_price}'
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -136,7 +139,7 @@ def description_handler(update: Update, context: CallbackContext, milton_access_
         add_cart_item(
             milton_access_token,
             cart_id,
-            product_id,
+            str(product_id),
             int(quantity)
         )
 
@@ -144,7 +147,34 @@ def description_handler(update: Update, context: CallbackContext, milton_access_
 
 
 def cart_handler(update: Update, context: CallbackContext, milton_access_token):
-    pass
+    cart_id = update.effective_chat.id
+    data = update.callback_query.data
+    if data == 'back':
+        reply_markup = send_fish_menu(milton_access_token)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Наш ассортимент:',
+            reply_markup=reply_markup
+        )
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.callback_query.message.message_id,
+        )
+        return 'HANDLE_MENU'
+    else:
+        remove_product_from_cart(milton_access_token, cart_id, data)
+        message, reply_markup = send_cart_description(milton_access_token, cart_id)
+
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+            reply_markup=reply_markup
+        )
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.callback_query.message.message_id,
+        )
+        return 'HANDLE_CART'
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
