@@ -138,6 +138,38 @@ def remove_product_from_cart(access_token, cart_id, product_id):
     return response.json()
 
 
+def create_customer(access_token, cart_id, email):
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+
+    customer_data = {
+        'data': {
+            'email': email,
+            'type': 'customer',
+            'name': str(cart_id)
+        }
+    }
+    cart_customers_url = f'https://useast.api.elasticpath.com/v2/customers'
+
+    creating_customer_response = requests.post(cart_customers_url, headers=headers, json=customer_data)
+    creating_customer_response.raise_for_status()
+    return creating_customer_response.json()
+
+
+def get_customer(access_token, customer_id):
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+
+    getting_customer_url = f'https://useast.api.elasticpath.com/v2/customers/{customer_id}'
+
+    response = requests.get(getting_customer_url, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
 if __name__ == '__main__':
     load_dotenv()
 
