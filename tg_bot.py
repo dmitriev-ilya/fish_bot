@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
-from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, remove_product_from_cart
+from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, remove_product_from_cart, create_customer
 
 
 _database = None
@@ -161,6 +161,16 @@ def cart_handler(update: Update, context: CallbackContext, milton_access_token):
             message_id=update.callback_query.message.message_id,
         )
         return 'HANDLE_MENU'
+    elif data == 'pay':
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Пожалуйста, введите ваш E-mail:'
+        )
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.callback_query.message.message_id,
+        )
+        return 'WAITING_EMAIL'
     else:
         remove_product_from_cart(milton_access_token, cart_id, data)
         message, reply_markup = send_cart_description(milton_access_token, cart_id)
@@ -175,6 +185,22 @@ def cart_handler(update: Update, context: CallbackContext, milton_access_token):
             message_id=update.callback_query.message.message_id,
         )
         return 'HANDLE_CART'
+
+
+def email_handler(update: Update, context: CallbackContext, milton_access_token):
+    cart_id = update.effective_chat.id
+    email = update.message.text
+
+    create_customer(milton_access_token, cart_id, email)
+
+    reply_markup = send_fish_menu(milton_access_token)
+    text = f"""Ваш заказ успешно создан. Наш менеджер свяжется с вами в ближайшее время. Ваш E-mail: {email}. 
+    Вы можете оформить другой заказ в меню ниже:"""
+    update.message.reply_text(
+        text=textwrap.dedent(text),
+        reply_markup=reply_markup
+    )
+    return 'HANDLE_MENU'
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
@@ -201,7 +227,8 @@ def handle_users_reply(update: Update, context: CallbackContext):
         'START': start,
         'HANDLE_MENU': get_product_description,
         'HANDLE_DESCRIPTION': description_handler,
-        'HANDLE_CART': cart_handler
+        'HANDLE_CART': cart_handler,
+        'WAITING_EMAIL': email_handler
     }
     state_handler = states_functions[user_state]
 
