@@ -2,13 +2,14 @@ import os
 import logging
 import redis
 import textwrap
+from functools import partial
 
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
-from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, remove_product_from_cart, create_customer
+import elasticpath_api_tools
 
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ _database = None
 
 
 def send_fish_menu(milton_access_token):
-    products = get_products(milton_access_token)['data']
+    products = elasticpath_api_tools.get_products(milton_access_token)['data']
     keyboard = [[]]
     for product in products:
         inline_item = InlineKeyboardButton(product['attributes']['name'], callback_data=product['id'])
@@ -35,9 +36,9 @@ def send_cart_description(milton_access_token, cart_id):
             InlineKeyboardButton('В меню', callback_data='back')
         ]
     ]
-    cart_items = get_cart_items(milton_access_token, cart_id)
+    cart_items = elasticpath_api_tools.get_cart_items(milton_access_token, cart_id)
     for cart_item in cart_items['data']:
-        product = get_product(milton_access_token, cart_item['product_id'])
+        product = elasticpath_api_tools.get_product(milton_access_token, cart_item['product_id'])
         product_description = product['data']['attributes'].get('description', 'Нет описания :(')
         item_price = cart_item['meta']['display_price']['with_tax']['unit']['formatted']
         cart_item_cost = cart_item['meta']['display_price']['with_tax']['value']['formatted']
@@ -72,9 +73,9 @@ def start(update: Update, context: CallbackContext, milton_access_token):
 
 def get_product_description(update: Update, context: CallbackContext, milton_access_token):
     product_id = update.callback_query.data
-    product = get_product(milton_access_token, product_id)['data']
+    product = elasticpath_api_tools.get_product(milton_access_token, product_id)['data']
     main_image_id = product['relationships']['main_image']['data']['id']
-    file_href = get_file_href(milton_access_token, main_image_id)
+    file_href = elasticpath_api_tools.get_file_href(milton_access_token, main_image_id)
     fish_description = f"""
         {product['attributes']['name']}
 
@@ -138,7 +139,7 @@ def description_handler(update: Update, context: CallbackContext, milton_access_
     else:
         quantity, product_id = data.split()
 
-        add_cart_item(
+        elasticpath_api_tools.add_cart_item(
             milton_access_token,
             cart_id,
             str(product_id),
@@ -174,7 +175,7 @@ def cart_handler(update: Update, context: CallbackContext, milton_access_token):
         )
         return 'WAITING_EMAIL'
     else:
-        remove_product_from_cart(milton_access_token, cart_id, data)
+        elasticpath_api_tools.remove_product_from_cart(milton_access_token, cart_id, data)
         message, reply_markup = send_cart_description(milton_access_token, cart_id)
 
         context.bot.send_message(
@@ -193,7 +194,7 @@ def email_handler(update: Update, context: CallbackContext, milton_access_token)
     cart_id = update.effective_chat.id
     email = update.message.text
 
-    create_customer(milton_access_token, cart_id, email)
+    elasticpath_api_tools.create_customer(milton_access_token, cart_id, email)
 
     reply_markup = send_fish_menu(milton_access_token)
     text = f"""Ваш заказ успешно создан. Наш менеджер свяжется с вами в ближайшее время. Ваш E-mail: {email}. 
@@ -205,13 +206,10 @@ def email_handler(update: Update, context: CallbackContext, milton_access_token)
     return 'HANDLE_MENU'
 
 
-def handle_users_reply(update: Update, context: CallbackContext):
+def handle_users_reply(update: Update, context: CallbackContext, milton_access_token):
 
     db = get_database_connection()
 
-    load_dotenv()
-
-    milton_access_token = get_access_token(os.getenv('CLIENT_ID'), os.getenv('CLIENT_SECRET'))
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -254,11 +252,17 @@ def get_database_connection():
 if __name__ == '__main__':
     load_dotenv()
     token = os.getenv("TELEGRAM_TOKEN")
+    milton_access_token = elasticpath_api_tools.get_access_token(
+        os.getenv('CLIENT_ID'),
+        os.getenv('CLIENT_SECRET')
+    )
     logger.setLevel(logging.INFO)
+
+    reply_handler = partial(handle_users_reply, milton_access_token=milton_access_token)
 
     updater = Updater(token)
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
-    dispatcher.add_handler(CommandHandler('start', handle_users_reply))
+    dispatcher.add_handler(CallbackQueryHandler(reply_handler))
+    dispatcher.add_handler(MessageHandler(Filters.text, reply_handler))
+    dispatcher.add_handler(CommandHandler('start', reply_handler))
     updater.start_polling()
