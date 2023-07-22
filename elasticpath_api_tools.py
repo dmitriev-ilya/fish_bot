@@ -126,6 +126,18 @@ def get_file_href(access_token, file_id):
     return response.json()['data']['link']['href']
 
 
+def remove_product_from_cart(access_token, cart_id, product_id):
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+
+    remove_item_url = f'https://useast.api.elasticpath.com/v2/carts/{cart_id}/items/{product_id}'
+
+    response = requests.delete(remove_item_url, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
 if __name__ == '__main__':
     load_dotenv()
 
