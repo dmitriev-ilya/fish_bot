@@ -8,7 +8,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 
-from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, get_cart
+from elasticpath_api_tools import get_access_token, get_products, get_product, get_file_href, add_cart_item, get_cart_items, get_cart, remove_product_from_cart
+
 
 _database = None
 
@@ -21,6 +22,38 @@ def send_fish_menu(milton_access_token):
         keyboard[0].append(inline_item)
     reply_markup = InlineKeyboardMarkup(keyboard)
     return reply_markup
+
+
+def send_cart_description(milton_access_token, cart_id):
+    message = ''
+    keyboard = [
+        [],
+        [
+            InlineKeyboardButton('Оплатить', callback_data='pay'),
+            InlineKeyboardButton('В меню', callback_data='back')
+        ]
+    ]
+    cart_items = get_cart_items(milton_access_token, cart_id)
+    for cart_item in cart_items['data']:
+        product = get_product(milton_access_token, cart_item['product_id'])
+        product_description = product['data']['attributes'].get('description', 'Нет описания :(')
+        item_price = cart_item['meta']['display_price']['with_tax']['unit']['formatted']
+        cart_item_cost = cart_item['meta']['display_price']['with_tax']['value']['formatted']
+
+        cart_item_description = f"""
+            {cart_item['name']}
+            {product_description}
+            {item_price} per kg
+            {cart_item['quantity']} in cart for {cart_item_cost}
+        """
+        message += textwrap.dedent(cart_item_description)
+
+        keyboard[0].append(InlineKeyboardButton(f'Убрать из корзины {cart_item["name"]}', callback_data=cart_item['product_id']))
+    total_price = cart_items['meta']['display_price']['with_tax']['formatted']
+    message += f'\nTotal: {total_price}'
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    return message, reply_markup
 
 
 def start(update: Update, context: CallbackContext, milton_access_token):
@@ -85,32 +118,18 @@ def description_handler(update: Update, context: CallbackContext, milton_access_
         )
         return 'HANDLE_MENU'
     elif data == 'cart':
-        message = ''
-        cart_items = get_cart_items(milton_access_token, cart_id)
-        for cart_item in cart_items['data']:
-            product = get_product(milton_access_token, cart_item['product_id'])
-            product_description = product['data']['attributes'].get('description', 'Нет описания :(')
-            item_price = cart_item['meta']['display_price']['with_tax']['unit']['formatted']
-            cart_item_cost = cart_item['meta']['display_price']['with_tax']['value']['formatted']
-
-            cart_item_description = f"""
-                {cart_item['name']}
-                {product_description}
-                {item_price} per kg
-                {cart_item['quantity']} in cart for {cart_item_cost}
-            """
-            message += textwrap.dedent(cart_item_description)
-        total_price = cart_items['meta']['display_price']['with_tax']['formatted']
-        message += f'\nTotal: {total_price}'
+        message, reply_markup = send_cart_description(milton_access_token, cart_id)
 
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=message
+            text=message,
+            reply_markup=reply_markup
         )
         context.bot.delete_message(
             chat_id=update.effective_chat.id,
             message_id=update.callback_query.message.message_id,
         )
+        return 'HANDLE_CART'
     else:
         quantity, product_id = data.split()
 
@@ -121,8 +140,11 @@ def description_handler(update: Update, context: CallbackContext, milton_access_
             int(quantity)
         )
 
-    print(product)
     return 'HANDLE_DESCRIPTION'
+
+
+def cart_handler(update: Update, context: CallbackContext, milton_access_token):
+    pass
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
@@ -148,7 +170,8 @@ def handle_users_reply(update: Update, context: CallbackContext):
     states_functions = {
         'START': start,
         'HANDLE_MENU': get_product_description,
-        'HANDLE_DESCRIPTION': description_handler
+        'HANDLE_DESCRIPTION': description_handler,
+        'HANDLE_CART': cart_handler
     }
     state_handler = states_functions[user_state]
 
