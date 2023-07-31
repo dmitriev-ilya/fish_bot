@@ -2,6 +2,8 @@
 
 Бот для продажи продукции из интернет-магазина на базе CMS [elasticpath](https://www.elasticpath.com/) через API сервиса.
 
+Пример работающего бота: [@DvmnFishSellerBot](https://t.me/DvmnFishSellerBot)
+
 ![image](https://dvmn.org/media/filer_public/0a/5b/0a5b562c-7cb4-43e3-b51b-1b61721200fb/fish-shop.gif)
 
 ## Установка
