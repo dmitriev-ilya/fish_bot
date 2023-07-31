@@ -25,8 +25,9 @@ def get_products(access_token):
         'include': 'component_products'
     }
 
-    responce = requests.get(product_api_base_url, params=params, headers=headers)
-    return responce.json()
+    response = requests.get(product_api_base_url, params=params, headers=headers)
+    response.raise_for_status()
+    return response.json()
 
 
 def get_product(access_token, product_id):
@@ -35,8 +36,9 @@ def get_product(access_token, product_id):
     }
     product_api_base_url = f'https://useast.api.elasticpath.com/pcm/products/{product_id}'
 
-    responce = requests.get(product_api_base_url, headers=headers)
-    return responce.json()
+    response = requests.get(product_api_base_url, headers=headers)
+    response.raise_for_status()
+    return response.json()
 
 
 def get_cart(access_token, cart_id):
