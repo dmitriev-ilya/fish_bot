@@ -29,14 +29,9 @@ def send_fish_menu(milton_access_token):
 
 def send_cart_description(milton_access_token, cart_id):
     message = ''
-    keyboard = [
-        [],
-        [
-            InlineKeyboardButton('Оплатить', callback_data='pay'),
-            InlineKeyboardButton('В меню', callback_data='back')
-        ]
-    ]
+
     cart_items = elasticpath_api_tools.get_cart_items(milton_access_token, cart_id)
+    product_buttons = []
     for cart_item in cart_items['data']:
         product = elasticpath_api_tools.get_product(milton_access_token, cart_item['product_id'])
         product_description = product['data']['attributes'].get('description', 'Нет описания :(')
@@ -51,10 +46,17 @@ def send_cart_description(milton_access_token, cart_id):
         """
         message += textwrap.dedent(cart_item_description)
 
-        keyboard[0].append(InlineKeyboardButton(
+        product_buttons.append(InlineKeyboardButton(
             f'Убрать из корзины {cart_item["name"]}',
             callback_data=cart_item['id'])
         )
+    keyboard = [
+        product_buttons,
+        [
+            InlineKeyboardButton('Оплатить', callback_data='pay'),
+            InlineKeyboardButton('В меню', callback_data='back')
+        ]
+    ]
     total_price = cart_items['meta']['display_price']['with_tax']['formatted']
     message += f'\nTotal: {total_price}'
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -197,7 +199,7 @@ def email_handler(update: Update, context: CallbackContext, milton_access_token)
     elasticpath_api_tools.create_customer(milton_access_token, cart_id, email)
 
     reply_markup = send_fish_menu(milton_access_token)
-    text = f"""Ваш заказ успешно создан. Наш менеджер свяжется с вами в ближайшее время. Ваш E-mail: {email}. 
+    text = f"""Ваш заказ успешно создан. Наш менеджер свяжется с вами в ближайшее время. Ваш E-mail: {email}.
     Вы можете оформить другой заказ в меню ниже:"""
     update.message.reply_text(
         text=textwrap.dedent(text),

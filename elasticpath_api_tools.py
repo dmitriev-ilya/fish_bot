@@ -21,7 +21,7 @@ def get_products(access_token):
     }
     product_api_base_url = 'https://useast.api.elasticpath.com/pcm/products'
     params = {
-        'productId': "", 
+        'productId': "",
         'include': 'component_products'
     }
 
@@ -120,7 +120,7 @@ def create_customer(access_token, cart_id, email):
             'name': str(cart_id)
         }
     }
-    cart_customers_url = f'https://useast.api.elasticpath.com/v2/customers'
+    cart_customers_url = 'https://useast.api.elasticpath.com/v2/customers'
 
     creating_customer_response = requests.post(cart_customers_url, headers=headers, json=customer_data)
     creating_customer_response.raise_for_status()
