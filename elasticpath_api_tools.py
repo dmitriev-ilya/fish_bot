@@ -12,7 +12,8 @@ def get_access_token(client_id, client_secret):
     response.raise_for_status()
 
     access_token = response.json()['access_token']
-    return access_token
+    exspires_timestamp = response.json()['expires']
+    return access_token, exspires_timestamp
 
 
 def get_products(access_token):

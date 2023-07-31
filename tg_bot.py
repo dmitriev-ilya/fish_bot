@@ -1,8 +1,10 @@
+
 import os
 import logging
 import redis
 import textwrap
 from functools import partial
+from datetime import datetime
 
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -15,6 +17,7 @@ import elasticpath_api_tools
 logger = logging.getLogger(__name__)
 
 _database = None
+TOKEN_EXPIRES_TIMESTAMP = None
 
 
 def send_fish_menu(milton_access_token):
@@ -208,9 +211,16 @@ def email_handler(update: Update, context: CallbackContext, milton_access_token)
     return 'HANDLE_MENU'
 
 
-def handle_users_reply(update: Update, context: CallbackContext, milton_access_token):
+def handle_users_reply(update: Update, context: CallbackContext, milton_access_token, client_id, client_secret):
 
     db = get_database_connection()
+    global TOKEN_EXPIRES_TIMESTAMP
+    if TOKEN_EXPIRES_TIMESTAMP <= datetime.now().timestamp():
+        milton_access_token, exspires_timestamp = elasticpath_api_tools.get_access_token(
+            client_id,
+            client_secret
+        )
+        TOKEN_EXPIRES_TIMESTAMP = exspires_timestamp
 
     if update.message:
         user_reply = update.message.text
@@ -254,13 +264,21 @@ def get_database_connection():
 if __name__ == '__main__':
     load_dotenv()
     token = os.getenv("TELEGRAM_TOKEN")
-    milton_access_token = elasticpath_api_tools.get_access_token(
-        os.getenv('CLIENT_ID'),
-        os.getenv('CLIENT_SECRET')
+    client_id = os.getenv('CLIENT_ID')
+    client_secret = os.getenv('CLIENT_SECRET')
+    milton_access_token, exspires_timestamp = elasticpath_api_tools.get_access_token(
+        client_id,
+        client_secret
     )
+    TOKEN_EXPIRES_TIMESTAMP = exspires_timestamp
     logger.setLevel(logging.INFO)
 
-    reply_handler = partial(handle_users_reply, milton_access_token=milton_access_token)
+    reply_handler = partial(
+        handle_users_reply,
+        milton_access_token=milton_access_token,
+        client_id=client_id,
+        client_secret=client_secret
+    )
 
     updater = Updater(token)
     dispatcher = updater.dispatcher
