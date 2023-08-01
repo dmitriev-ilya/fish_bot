@@ -10,9 +10,10 @@ def get_access_token(client_id, client_secret):
     }
     response = requests.post(api_access_url, data=api_access_data)
     response.raise_for_status()
+    response_json = response.json()
 
-    access_token = response.json()['access_token']
-    exspires_timestamp = response.json()['expires']
+    access_token = response_json['access_token']
+    exspires_timestamp = response_json['expires']
     return access_token, exspires_timestamp
 
 
